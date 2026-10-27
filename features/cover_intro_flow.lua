@@ -67,14 +67,22 @@ local function resolve_server(subject)
     return "https://api.bgm.tv"
 end
 
--- 从 subject/cached 表中提取有效标题（name_cn/name），无有效标题时返回 fallback
--- 用于 on_cached_hit / on_search_success：外层已通过 resolve_display_title 获取中文标题，
--- 此处仅需同步提取 subject 字段，无有效标题时用外层 title 兜底（避免重复异步调用）
-local function extract_title_or(subject, fallback)
+-- 展示标题：统一交给 search_pipeline.format_display_title，
+--   取 name_cn（繁转简）→ fallback（外层已转中文的标题）→ name，
+--   再拼上已识别的季 / 集后缀。
+-- 保留本地兜底：管线未暴露该函数时退回旧的「name_cn → name → fallback」顺序，
+-- 保证不同版本组合下都能拿到一个可用标题。
+local function display_title(subject, fallback, context)
+    if type(deps.search_pipeline) == "table"
+       and type(deps.search_pipeline.format_display_title) == "function" then
+        local title = deps.search_pipeline.format_display_title(subject, fallback, context)
+        if title and title ~= "" then return title end
+    end
     if type(subject) == "table" then
         if type(subject.name_cn) == "string" and subject.name_cn ~= "" then
             return subject.name_cn
-        elseif type(subject.name) == "string" and subject.name ~= "" then
+        end
+        if type(subject.name) == "string" and subject.name ~= "" then
             return subject.name
         end
     end
@@ -240,9 +248,9 @@ function M.fetch()
         deps.search_pipeline.run_subject_pipeline({
             menu_type = menu_type,
             -- 缓存命中：用缓存的 subject 拉取详情
-            -- v1.6: 用 extract_title_or 同步提取标题，无有效标题时用外层 title 兜底
-            on_cached_hit = function(cached, ep)
-                fetch_detail_and_show(cached, extract_title_or(cached, title), ep)
+            -- 标题统一走 format_display_title（name_cn 优先 + 季集后缀）
+            on_cached_hit = function(cached, ep, context)
+                fetch_detail_and_show(cached, display_title(cached, title, context), ep)
             end,
             -- 搜索函数：包装 search_subject_enhanced 以匹配管线契约
             search_fn = function(t, sn, on_progress, on_done, skip_extra)
@@ -250,8 +258,8 @@ function M.fetch()
                     t, sn, on_done, on_progress, skip_extra)
             end,
             -- 搜索成功：拉取详情 + 展示 + 写缓存
-            on_search_success = function(subject, ep)
-                fetch_detail_and_show(subject, extract_title_or(subject, title), ep)
+            on_search_success = function(subject, ep, context)
+                fetch_detail_and_show(subject, display_title(subject, title, context), ep)
             end,
         })
     end)

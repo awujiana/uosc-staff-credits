@@ -4,6 +4,7 @@
 -- 遵循 ADR-10 统一 init(opts, deps) 接口
 
 local M = {}
+local title_normalize = require("modules.title_normalize")
 
 local opts, deps, init = require("modules.utils.module_loader").make_init(
     "name_resolver",
@@ -19,38 +20,30 @@ function M.resolve(subject)
     if type(subject) ~= "table" then
         return "未知条目"
     end
-    if subject.name_cn and subject.name_cn ~= "" then
-        return subject.name_cn
-    end
-    if subject.name and subject.name ~= "" then
-        return tostring(subject.name)
-    end
-    if subject.title and subject.title ~= "" then
-        return tostring(subject.title)
-    end
-    return "未知条目"
+    local name = title_normalize.resolve_display_name(subject)
+    return name ~= "" and name or "未知条目"
 end
 
 -- resolve_person: 人员（person）名称解析
--- 优先级：name (中文) → name_en → name_jp → "未知"
+-- 优先级：中文字段 → name（原名，多为日文汉字）→ name_en → name_jp → "未知"
 -- 兼容 Bangumi 与 AniList/MAL 两种字段命名：
---   Bangumi: name (日文)
+--   Bangumi: name (日文原名), name_cn (中文译名)
 --   AniList/MAL: name (默认标题), name_en 等
--- 这里按任务规约：name → name_en → name_jp
+--
+-- ⚠️ name_en / name_jp 只能作为**兜底**，不能插在 name 前面：
+--    职员没有中文译名时，日文原名「宮崎駿」对中文用户远好于罗马字
+--    「Miyazaki Hayao」。resolve_display_name 的 fallback 参数会排在
+--    entity.name 之前（那是给「已转中文的搜索标题」用的），所以这里
+--    不传 fallback，先按实体自身字段解析，解析不到再单独兜底。
 function M.resolve_person(person)
     if type(person) ~= "table" then
         return "未知"
     end
-    if person.name and person.name ~= "" then
-        return tostring(person.name)
+    local name = title_normalize.resolve_display_name(person)
+    if name == "" then
+        name = title_normalize.resolve_display_name(nil, person.name_en or person.name_jp)
     end
-    if person.name_en and person.name_en ~= "" then
-        return tostring(person.name_en)
-    end
-    if person.name_jp and person.name_jp ~= "" then
-        return tostring(person.name_jp)
-    end
-    return "未知"
+    return name ~= "" and name or "未知"
 end
 
 -- resolve_character: 角色名称解析
@@ -59,13 +52,8 @@ function M.resolve_character(char)
     if type(char) ~= "table" then
         return "未知角色"
     end
-    if char.name_cn and char.name_cn ~= "" then
-        return tostring(char.name_cn)
-    end
-    if char.name and char.name ~= "" then
-        return tostring(char.name)
-    end
-    return "未知角色"
+    local name = title_normalize.resolve_display_name(char)
+    return name ~= "" and name or "未知角色"
 end
 
 return M

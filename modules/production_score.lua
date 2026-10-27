@@ -7,6 +7,8 @@
 
 local mp = require("mp")
 
+local title_normalize = require("modules.title_normalize")
+
 local M = {}
 
 -- ====== 模块工厂初始化（make_init）======
@@ -117,12 +119,12 @@ local function extract_year(date_str)
 end
 
 -- ====== 从 work 提取标题 ======
+-- 统一走 title_normalize：中文字段优先 + 繁转简，避免作品名在面板上繁简混排
 local function get_work_title(work)
     if type(work) ~= "table" then return "未知" end
-    local title = work.name_cn
-    if type(title) == "string" and title ~= "" then return title end
-    title = work.name
-    if type(title) == "string" and title ~= "" then return title end
+    local title = title_normalize.resolve_display_name(work)
+    if title ~= "" then return title end
+    if type(work.name) == "string" and work.name ~= "" then return work.name end
     return "未知"
 end
 

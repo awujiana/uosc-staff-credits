@@ -10,6 +10,7 @@ local mp = require("mp")
 
 -- v1.7: 通用 overlay 管理组件（统一分配 id + 文件验证 + 批量清理）
 local overlay_manager = require("modules.overlay_manager")
+local title_normalize = require("modules.title_normalize")
 
 local M = {}
 
@@ -92,15 +93,13 @@ end
 -- 兼容 bangumi（rating/infobox/tags 对象数组）和 anilist/mal/baike 格式
 
 -- 提取番剧中文名
+-- 统一走 title_normalize.resolve_display_name：中文字段优先，再做繁转简。
+-- 各数据源的差异只在「中文字段落在哪个键上」，取不到时统一回退 name。
 local function get_name_cn(detail, source_name)
     if type(detail) ~= "table" then return "" end
-    if source_name == "anilist" then
-        -- AniList title.native 是日文原名，name_cn 字段已由 parse_media 填充
-        return to_str(detail.name_cn)
-    elseif source_name == "mal" then
-        -- MAL alternative_titles.ja 是日文原名，name_cn 已由 parse_anime 填充
-        return to_str(detail.name_cn)
-    elseif source_name == "baike" then
+    local name = title_normalize.resolve_display_name(detail)
+    if name ~= "" then return name end
+    if source_name == "baike" then
         -- 百度百科 title 即中文标题
         return to_str(detail.name_cn or detail.name)
     end

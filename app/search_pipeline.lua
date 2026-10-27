@@ -199,10 +199,11 @@ end
 -- 2. subject 缓存中文名（静默预加载或之前搜索的结果，独立于 uosc_danmaku）
 -- 3. 文件名解析（guess.parse_title，从 path 提取番剧名）
 -- 4. media-title 兜底（URL 等特殊情况）
--- 返回: title (string), season_num (number|nil)
+-- 返回: title (string), season_num (number|nil), episode_num (number|nil)
 function M.resolve_title_sync()
     local title = nil
     local season_num = nil
+    local episode_num = nil
 
     -- 1. 弹幕关联中文名（可能因 uosc_danmaku 未暴露而返回 nil）
     --    弹幕API返回的 animeTitle 已含季数信息（如"平凡职业造就世界最强第三季"），
@@ -211,6 +212,10 @@ function M.resolve_title_sync()
         local ok, dinfo = pcall(deps.get_danmaku_info)
         if ok and type(dinfo) == "table" and dinfo.anime and dinfo.anime ~= "" then
             title = dinfo.anime
+            episode_num = dinfo.episode_number
+            if not episode_num and type(dinfo.episode) == "string" then
+                episode_num = title_normalize.extract_episode_number(dinfo.episode)
+            end
         end
     end
 
@@ -226,11 +231,14 @@ function M.resolve_title_sync()
     end
 
     -- 3. 文件名解析（确保无 uosc_danmaku 也能获取番剧名）
-    if (not title or title == "") and deps.get_current_title then
-        local ok, t, s = pcall(deps.get_current_title)
-        if ok and t and t ~= "" then
-            title = t
-            season_num = s
+    if deps.get_current_title then
+        local ok, t, s, e = pcall(deps.get_current_title)
+        if ok then
+            if (not title or title == "") and t and t ~= "" then
+                title = t
+            end
+            if not season_num then season_num = s end
+            if not episode_num then episode_num = e end
         end
     end
 
@@ -244,7 +252,7 @@ function M.resolve_title_sync()
         title = "未知条目"
     end
 
-    return title, season_num
+    return title, season_num, episode_num
 end
 
 -- resolve_display_title: 异步获取显示标题（含中文转换）
@@ -258,14 +266,14 @@ end
 -- 2026-10-05 修正：原用 is_chinese 判「已是中文」→ 繁体标题被跳过转换。
 --   改用 is_simplified_chinese（详见 title_normalize 模块注释）。
 function M.resolve_display_title(callback)
-    local base_title, season_num = M.resolve_title_sync()
+    local base_title, season_num, episode_num = M.resolve_title_sync()
 
     -- 本地先做一次繁→简，再判定是否还需要网络转换
     local simplified = title_normalize.to_simplified(base_title)
 
     if title_normalize.is_simplified_chinese(simplified) then
         debug_log("resolve_display_title: already simplified chinese: %s", simplified)
-        if callback then callback(simplified, season_num) end
+        if callback then callback(simplified, season_num, episode_num) end
         return
     end
 
@@ -273,8 +281,21 @@ function M.resolve_display_title(callback)
     debug_log("resolve_display_title: need conversion: %s", simplified)
     resolve_chinese_title(base_title, function(chinese_title)
         local final = chinese_title or simplified
-        if callback then callback(final, season_num) end
+        if callback then callback(final, season_num, episode_num) end
     end)
+end
+
+-- format_display_title: 统一各面板的可见标题。
+-- subject 成功匹配后优先取其 name_cn；季、集只加入界面文本，搜索 API 仍使用
+-- 不含集数的 query，避免把单集误当作独立条目。
+function M.format_display_title(subject, fallback, context)
+    context = context or {}
+    return title_normalize.format_subject_title(
+        subject,
+        fallback,
+        context.season_num,
+        context.episode_num
+    )
 end
 
 -- resolve_cached_title: 缓存条目标题兜底统一入口
@@ -300,14 +321,16 @@ function M.resolve_cached_title(cached, entry_path, callback)
             cached_title = cached.name
         end
     end
+    local _, season_num, episode_num = M.resolve_title_sync()
+    local context = { season_num = season_num, episode_num = episode_num }
     if cached_title ~= "" then
-        callback(cached_title)
+        callback(M.format_display_title(cached, cached_title, context), context)
         return
     end
 
     -- 2. 缓存无有效标题：调用 resolve_display_title 获取中文标题
     if type(M.resolve_display_title) == "function" then
-        M.resolve_display_title(function(display_title, _season_num)
+        M.resolve_display_title(function(display_title, resolved_season, resolved_episode)
             -- 路径校验：防止异步回调污染（entry_path 为 nil 时跳过校验）
             if entry_path and deps.state and deps.state.search_state
                and deps.state.search_state.current_path ~= entry_path then
@@ -316,14 +339,16 @@ function M.resolve_cached_title(cached, entry_path, callback)
             -- display_title 理论上不会为空（resolve_title_sync 有 "未知条目" 兜底），但仍防御
             local final = display_title
             if not final or final == "" then final = mp.get_property("media-title") or "未知条目" end
-            callback(final)
+            context.season_num = resolved_season or context.season_num
+            context.episode_num = resolved_episode or context.episode_num
+            callback(M.format_display_title(cached, final, context), context)
         end)
         return
     end
 
     -- 3. resolve_display_title 不可用：回退到 media-title，再兜底 "未知条目"
     local fallback = mp.get_property("media-title") or "未知条目"
-    callback(fallback)
+    callback(M.format_display_title(cached, fallback, context), context)
 end
 
 -- ============ 7.1 search_subject_enhanced ============
@@ -640,7 +665,7 @@ end
 --   仅在 bangumi 不可用时才落到 anilist/mal/baike 分发链。
 --
 -- 签名: fetch_characters_from_source(title, season_num, on_progress, callback, skip_extra)
--- 回调契约: callback(success, characters, persons, err_info, source_name)
+-- 回调契约: callback(success, characters, persons, err_info, source_name, subject)
 function M.fetch_characters_from_source(title, season_num, on_progress, callback, skip_extra)
     if not title or title == "" then
         if callback then callback(false, nil, nil, make_err("ERR_EMPTY", "empty title"), nil) end
@@ -654,9 +679,9 @@ function M.fetch_characters_from_source(title, season_num, on_progress, callback
     end
 
     -- 完成成功：统一回调
-    local function finish_success(chars, persons, source_name)
+    local function finish_success(chars, persons, source_name, subject)
         if not check_path() then return end
-        if callback then callback(true, chars, persons, nil, source_name) end
+        if callback then callback(true, chars, persons, nil, source_name, subject) end
     end
 
     -- 全部失败
@@ -671,14 +696,14 @@ function M.fetch_characters_from_source(title, season_num, on_progress, callback
     local function try_light_novel_fallback(chars, persons, subject, server_url, on_fail)
         if not check_path() then return end
         if not server_url or server_url == "" then
-            finish_success(chars, persons, "bangumi")
+            finish_success(chars, persons, "bangumi", subject)
             return
         end
         deps.api.search_light_novel(title, server_url, function(ln_ok, ln_results, ln_err)
             if not check_path() then return end
             if not ln_ok or not ln_results or #ln_results == 0 then
                 -- 轻小说无结果：使用原始角色
-                finish_success(chars, persons, "bangumi")
+                finish_success(chars, persons, "bangumi", subject)
                 return
             end
             -- 取首个轻小说条目，获取其角色图片
@@ -699,7 +724,7 @@ function M.fetch_characters_from_source(title, season_num, on_progress, callback
                         end
                     end
                 end
-                finish_success(chars, persons, "bangumi")
+                finish_success(chars, persons, "bangumi", subject)
             end)
         end)
     end
@@ -781,7 +806,7 @@ function M.fetch_characters_from_source(title, season_num, on_progress, callback
                         if c.images then has_img = true; break end
                     end
                     if has_img then
-                        finish_success(chars, persons, "bangumi")
+                        finish_success(chars, persons, source, subject)
                     else
                         try_light_novel_fallback(chars, persons, subject, server_url, on_fail)
                     end
@@ -802,7 +827,7 @@ function M.fetch_characters_from_source(title, season_num, on_progress, callback
                         if c.images then has_img = true; break end
                     end
                     if has_img then
-                        finish_success(parsed, persons, "bangumi")
+                        finish_success(parsed, persons, source, subject)
                     else
                         try_light_novel_fallback(parsed, persons, subject, server_url, on_fail)
                     end
@@ -869,9 +894,9 @@ end
 -- 通用 7 步管线协调器，4 个 feature 入口共用
 -- pipeline_opts:
 --   menu_type              菜单类型标识
---   on_cached_hit(cached, entry_path)   缓存命中回调
+--   on_cached_hit(cached, entry_path, context)   缓存命中回调
 --   search_fn(title, season_num, on_progress, on_done, skip_extra)  搜索函数
---   on_search_success(data, entry_path) 搜索成功回调
+--   on_search_success(data, entry_path, context) 搜索成功回调
 --   on_failure(err_info, entry_path)    可选，失败回调
 --   keep_loading_after_search           true 时搜索完成用 transition_phase
 --   skip_extra                          透传给 search_fn
@@ -926,7 +951,11 @@ function M.run_subject_pipeline(pipeline_opts)
     if cached then
         deps.loading_controller.finish_silent()
         if on_cached_hit then
-            pcall(on_cached_hit, cached, entry_path)
+            local _, season_num, episode_num = M.resolve_title_sync()
+            pcall(on_cached_hit, cached, entry_path, {
+                season_num = season_num,
+                episode_num = episode_num,
+            })
         end
         return
     end
@@ -938,10 +967,15 @@ function M.run_subject_pipeline(pipeline_opts)
     --   4. media-title 兜底
     local title = nil
     local season_num = nil
+    local episode_num = nil
     if deps.get_danmaku_info then
         local ok, dinfo = pcall(deps.get_danmaku_info)
         if ok and type(dinfo) == "table" and dinfo.anime and dinfo.anime ~= "" then
             title = dinfo.anime
+            episode_num = dinfo.episode_number
+            if not episode_num and type(dinfo.episode) == "string" then
+                episode_num = title_normalize.extract_episode_number(dinfo.episode)
+            end
         end
     end
     -- v1.8: 补齐第 2 级 subject 缓存中文名（原先缺失，导致跳过缓存直接用文件名解析）
@@ -955,13 +989,14 @@ function M.run_subject_pipeline(pipeline_opts)
             end
         end
     end
-    if not title or title == "" then
-        if deps.get_current_title then
-            local ok, t, s = pcall(deps.get_current_title)
-            if ok and t and t ~= "" then
+    if deps.get_current_title then
+        local ok, t, s, e = pcall(deps.get_current_title)
+        if ok then
+            if (not title or title == "") and t and t ~= "" then
                 title = t
-                season_num = s
             end
+            if not season_num then season_num = s end
+            if not episode_num then episode_num = e end
         end
     end
     if not title or title == "" then
@@ -982,6 +1017,10 @@ function M.run_subject_pipeline(pipeline_opts)
     -- 仅当从文件名解析出非中文标题时触发转换（dandanplay + TMDB）
     local function proceed_search(final_title)
         if not check_path() then return end
+        local context = {
+            season_num = season_num,
+            episode_num = episode_num,
+        }
 
         -- 5. on_progress 回调
         local in_search_phase = false
@@ -1055,7 +1094,7 @@ function M.run_subject_pipeline(pipeline_opts)
             end
 
             if on_search_success then
-                pcall(on_search_success, data, entry_path)
+                pcall(on_search_success, data, entry_path, context)
             end
         end
 

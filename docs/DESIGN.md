@@ -842,6 +842,108 @@ search_pipeline.search_subject_enhanced(
 
 **与 ADR-09 的关系**：静默加载是 dispatcher 唯一保留的业务逻辑（其他业务均下沉 features），原因是它必须由 path_observer 直接触发，而 path_observer 本身就是 dispatcher 的职责。`trigger_silent_load` 仅调用 `search_pipeline` 和 `state` 的公共接口，未直接操作 UI 层。v1.6 后改用 `resolve_title_sync` + `resolve_chinese_title`，独立于 uosc_danmaku 工作。
 
+### 7.8 显示名规范化 — modules/title_normalize.lua（v1.10）
+
+文件：`modules/title_normalize.lua`
+
+#### 7.8.1 为什么要有这一层
+
+v1.10 之前，展示名散落在 6 处、各写各的优先级：
+
+| 位置 | 原逻辑 | 问题 |
+|------|--------|------|
+| `staff_credits.on_search_success` | `name_cn → search_title_used → name` | 只有职员表做了「中文优先」 |
+| `production_score_flow.on_search_success` | `name_cn → name → search_title_used` | 顺序与职员表**不一致**，无中文名时退回日文 |
+| `cover_intro_flow.extract_title_or` | `name_cn → name → 外层 title` | 拿不到 `search_title_used` |
+| `menu.show_search_results` | `r.name_cn or r.name` | 繁体原样显示 |
+| `production_score.get_work_title` | `work.name_cn → name` | 繁体原样显示 |
+| `cover_intro.get_name_cn` | `detail.name_cn` | 繁体原样显示 |
+
+后果：同一个条目，在四个面板里可能显示出四种不同的名字；繁体条目在部分面板上原样回退。
+
+⇒ v1.10 把「取哪个字段 + 繁转简 + 季集后缀」收敛到一个模块，所有面板共用。
+
+#### 7.8.2 三个对外接口
+
+| 接口 | 用途 | 优先级 |
+|------|------|--------|
+| `resolve_display_name(entity, fallback)` | 取**单纯的名字**（条目 / 角色 / 职员 / 声优通用） | 显式中文字段（`name_cn` / `name_zh_cn` / `name_zh` / `chinese_name`）→ infobox 中文名 → `fallback` → `entity.name` → `entity.title`，每个候选都过一遍繁转简 |
+| `format_subject_title(subject, fallback, season, episode)` | 取**带季集后缀的面板标题** | `resolve_display_name` 的结果 + 「第 X 季」「第 N 集」 |
+| `extract_episode_number(text)` | 从「第 12 话」这类文本取集数 | 见 7.8.4 |
+
+`fallback` 之所以排在 `entity.name` **之前**，是为了保留 v1.6 的修复：搜索标题已经过中文转换，而 `entity.name` 很可能是日文原名。
+
+> ⚠️ `resolve_person` 不传 `fallback`：职员的 `name_en` / `name_jp` 只能当兜底。
+> 没有中文译名时，日文原名「宮崎駿」对中文用户远好于罗马字「Miyazaki Hayao」。
+
+#### 7.8.3 季 / 集只做展示后缀，不参与搜索
+
+`format_subject_title` 拼出的「第 3 季 / 第 1 集」**只出现在界面文本里**。
+调用方仍用不含集数的 `title` 去查 Bangumi —— 把「第 5 集」当条目名去搜会搜不到东西。
+
+已带季数标记的标题不会重复追加，判重覆盖四种写法：
+
+- 阿拉伯：`第3季` / `第3部` / `第3期`
+- 中文数字：`第三季`
+- 英文：`Season 3`
+- 罗马数字：`III`（半角）与 `Ⅲ`（全角）
+
+最后一条是关键：中文正式译名常把季数**嵌进名字里**（「无职转生Ⅲ」「Sword Art Online II」），
+不认罗马数字的话会拼成「无职转生Ⅲ ～…～ 第 3 季」这种废话。
+罗马数字要求**独立成词**（两侧都不是 `[%w]`），否则 `I` 会命中 `Isekai`、`IX` 会命中 `MIX`。
+
+#### 7.8.4 季集识别：modules/guess.lua 的重写
+
+原实现把季、集识别写成一条 `if/else` 链，六个模式互斥 —— 命中集数就拿不到季数：
+
+```
+「进击的巨人 第三季 第05集」→ episode=05，season=nil
+「無職転生 III ～…～ - 09」 → episode=09，season=nil（罗马数字没覆盖）
+「无职转生 第二部 EP12」    → 中文「第X季 / 第X部」压根没有对应模式
+```
+
+v1.10 拆成三步，可叠加：
+
+1. **季 + 集同时命中**：`S01E02`、`2x05`（季数 ≤30，避开 `1920x1080` 这类分辨率）
+2. **抽集**：`Episode 09` → `EP09` → `第09话` → `第九话` → `[09]` → `- 09`
+3. **抽季**（在第 2 步剩下的串上做）：`第3季` → `第三季` → `2nd Season` → `Season 3` → 独立 `S2`
+
+顺序上「2nd Season」必须排在「Season X」**之前**，否则
+`Re:Zero 2nd Season - 26` 会被后面那个 `- 26` 误读成第 26 季。
+
+罗马数字（半角 `III` / 全角 `Ⅲ`）只作为**季数提示**，**不从标题里剥离** ——
+中文译名常把它嵌在名字里，剥掉反而搜不到。
+
+#### 7.8.5 ⚠️ Lua 字符类是字节集（本项目第 5 次踩）
+
+`[话集回]` 展开成字节集 `{E8, AF, 9D, E9, 9B, 86, E5, 9B, 9E}`，
+于是**任意首字节命中 E5/E8/E9 的汉字**都会被当成集数单位 ——
+实测「第 3 阶」的「阶」(`E9 98 B6`) 会被误判成「第 3 集」。
+`[一二三四五六七八九十]` 同理（首字节 E4/E5 覆盖大半汉字区）。
+
+⇒ 一律改成「**逐个字面量单位 + 捕获后校验**」：
+
+```lua
+local EPISODE_UNITS = { "话", "集", "回", "話" }
+local SEASON_UNITS  = { "季", "部", "期" }
+```
+
+「第三季 第五集」里有两个「第」，第一个的中文数字段会抓到「三季 第五」这种杂音；
+`chinese_number_to_int` 校验失败后**继续往后找下一个「第」**，而不是放弃。
+
+#### 7.8.6 已知限制
+
+共享的繁简字典 `uosc_danmaku/dicts/t2s_chars.lua` 是**繁体 → 简体**，
+不含日文新字体，所以 `転` / `撃` 这类字不会被转换：
+
+```
+無職転生 → 无职転生    （「転」不在字典里）
+```
+
+这条只在**未命中 Bangumi 条目**、只能靠文件名解析的兜底路径上才会出现；
+命中条目后一律取 `name_cn`，不受影响。要修就得给字典加一张日文新字体补表，
+属独立改动，本次未做。
+
 ---
 
 ## 8. 数据源优先级：servers.lua

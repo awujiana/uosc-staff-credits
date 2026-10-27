@@ -6,6 +6,7 @@
 -- 使用 make_feature_init（无 opts）
 
 local mp = require("mp")
+local title_normalize = require("modules.title_normalize")
 
 local M = {}
 
@@ -131,13 +132,8 @@ local function run_persons_phase(subject, title, entry_path, menu_type)
     -- 标题兜底：若传入的 title 为空，则尝试 subject 字段，最后用 "未知条目"
     local display_title = title
     if not display_title or display_title == "" then
-        if type(subject.name_cn) == "string" and subject.name_cn ~= "" then
-            display_title = subject.name_cn
-        elseif type(subject.name) == "string" and subject.name ~= "" then
-            display_title = subject.name
-        else
-            display_title = "未知条目"
-        end
+        display_title = title_normalize.resolve_display_name(subject)
+        if display_title == "" then display_title = "未知条目" end
     end
 
     -- v1.7: 本地持久化缓存优先（命中跳过 persons + 每人 works 拉取）
@@ -293,17 +289,16 @@ function M.fetch()
                 title, season_num, on_done, on_progress, skip_extra)
         end,
         -- 搜索成功：transition_phase 已由管线调用，进入 persons 阶段
-        on_search_success = function(subject, entry_path)
-            -- 标题优先级：subject.name_cn → subject.name → search_title_used → 兜底
+        -- 标题统一走 format_display_title（name_cn → search_title_used → name → 兜底），
+        -- 与职员表 / 角色卡 / 封面简介保持同一套显示名规则。
+        on_search_success = function(subject, entry_path, context)
             local title = nil
-            if type(subject) == "table" then
-                if type(subject.name_cn) == "string" and subject.name_cn ~= "" then
-                    title = subject.name_cn
-                elseif type(subject.name) == "string" and subject.name ~= "" then
-                    title = subject.name
-                end
+            if type(deps.search_pipeline.format_display_title) == "function" then
+                title = deps.search_pipeline.format_display_title(
+                    subject, search_title_used, context)
+            else
+                title = search_title_used
             end
-            if not title or title == "" then title = search_title_used end
             run_persons_phase(subject, title or "", entry_path, menu_type)
         end,
     })

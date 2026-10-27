@@ -233,8 +233,8 @@ function M.run()
         if not guess_mod or type(guess_mod.parse_title) ~= "function" then
             return nil
         end
-        local title, season_num = guess_mod.parse_title(path)
-        return title, season_num
+        local title, season_num, episode_num = guess_mod.parse_title(path)
+        return title, season_num, episode_num
     end
 
     -- get_danmaku_info: 调用 danmaku_link.get_info()

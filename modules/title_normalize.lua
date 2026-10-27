@@ -380,4 +380,211 @@ function M.to_standard_name(s)
     return t
 end
 
+-- ============================================================================
+-- 展示名与剧集标签
+-- ============================================================================
+-- 数据源的 `name_cn` 并不总是可靠：Bangumi 通常为中文，但 AniList/MAL
+-- 会把日文原名写进该字段。这里仅负责选择可用的中文字段、统一繁简，
+-- 不对缺少中文资料的人名做凭空翻译。
+
+local function nonempty_string(value)
+    if type(value) ~= "string" then return nil end
+    value = value:gsub("^%s*(.-)%s*$", "%1")
+    if value == "" then return nil end
+    return value
+end
+
+local function normalize_display_text(value)
+    value = nonempty_string(value)
+    if not value then return nil end
+    return M.normalize(value)
+end
+
+local function chinese_infobox_name(infobox)
+    if type(infobox) ~= "table" then return nil end
+
+    local direct_keys = {
+        ["简体中文名"] = true,
+        ["中文名"] = true,
+        ["中文译名"] = true,
+        ["中文名称"] = true,
+    }
+
+    for _, item in ipairs(infobox) do
+        if type(item) == "table" then
+            local key = normalize_display_text(item.key)
+            if key and direct_keys[key] then
+                local name = normalize_display_text(item.value)
+                if name then return name end
+            end
+
+            -- Bangumi 的“别名”常为 { { k = "简体中文名", v = "..." } }。
+            if key == "别名" and type(item.value) == "table" then
+                for _, alias in ipairs(item.value) do
+                    if type(alias) == "table" then
+                        local alias_key = normalize_display_text(alias.k or alias.key)
+                        if alias_key and direct_keys[alias_key] then
+                            local name = normalize_display_text(alias.v or alias.value)
+                            if name then return name end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- resolve_display_name: 为条目、角色、职员和声优取统一展示名。
+-- 优先级：显式中文字段 → infobox 中文字段 → fallback → 原始 name。
+function M.resolve_display_name(entity, fallback)
+    local candidates = {}
+    local function add(value)
+        if value ~= nil then candidates[#candidates + 1] = value end
+    end
+    if type(entity) == "table" then
+        add(entity.name_cn)
+        add(entity.name_zh_cn)
+        add(entity.name_zh)
+        add(entity.chinese_name)
+        add(chinese_infobox_name(entity.infobox))
+        add(fallback)
+        add(entity.name)
+        add(entity.title)
+    else
+        add(fallback)
+        add(entity)
+    end
+
+    for _, candidate in ipairs(candidates) do
+        local name = normalize_display_text(candidate)
+        if name then return name end
+    end
+    return ""
+end
+
+local CHINESE_NUMERALS = {
+    [1] = "一", [2] = "二", [3] = "三", [4] = "四", [5] = "五",
+    [6] = "六", [7] = "七", [8] = "八", [9] = "九", [10] = "十",
+}
+
+-- 罗马数字：半角 III 与全角 Ⅲ 都要认 —— 中文译名常把季数直接嵌进名字
+-- （如「无职转生Ⅲ」「Sword Art Online II」），此时再追加「第 3 季」就成了废话。
+local ROMAN_NUMERALS = {
+    [1] = "I", [2] = "II", [3] = "III", [4] = "IV", [5] = "V",
+    [6] = "VI", [7] = "VII", [8] = "VIII", [9] = "IX", [10] = "X",
+    [11] = "XI", [12] = "XII",
+}
+local FULLWIDTH_ROMAN_NUMERALS = {}
+for index = 1, 12 do
+    -- U+2160(Ⅰ) .. U+216B(Ⅻ)
+    FULLWIDTH_ROMAN_NUMERALS[index] = string.char(0xE2, 0x85, 0x9F + index)
+end
+
+-- 季数等价单位：番剧的「第二部 / 第三期」通常就等于第二季 / 第三季
+local SEASON_UNITS = { "季", "部", "期" }
+
+local function clean_number(value)
+    local n = tonumber(value)
+    if not n or n < 1 or n % 1 ~= 0 then return nil end
+    return math.floor(n)
+end
+
+-- has_standalone_token: token 是否在标题里「独立成词」
+-- 不做这个判断的话，"I" 会命中 "Isekai"、"IX" 会命中 "MIX"。
+local function is_word_unit(unit)
+    return unit ~= nil and unit:match("^[%w]$") ~= nil
+end
+
+local function has_standalone_token(title, token)
+    if type(title) ~= "string" or title == "" then return false end
+    local units = utf8_units(title)
+    local token_units = utf8_units(token)
+    local token_len = #token_units
+    for start = 1, #units - token_len + 1 do
+        local matched = true
+        for offset = 1, token_len do
+            if units[start + offset - 1] ~= token_units[offset] then
+                matched = false
+                break
+            end
+        end
+        if matched
+           and not is_word_unit(units[start - 1])
+           and not is_word_unit(units[start + token_len]) then
+            return true
+        end
+    end
+    return false
+end
+
+local function has_season_label(title, season)
+    if not season then return false end
+    local arabic = tostring(season)
+    local chinese = CHINESE_NUMERALS[season]
+
+    for _, unit in ipairs(SEASON_UNITS) do
+        if title:find("第" .. arabic .. unit, 1, true) then return true end
+        if chinese and title:find("第" .. chinese .. unit, 1, true) then return true end
+    end
+
+    if title:lower():find("season%s*" .. arabic) then return true end
+
+    local roman = ROMAN_NUMERALS[season]
+    if roman and has_standalone_token(title, roman) then return true end
+    local fullwidth = FULLWIDTH_ROMAN_NUMERALS[season]
+    if fullwidth and has_standalone_token(title, fullwidth) then return true end
+
+    return false
+end
+
+local function has_episode_label(title, episode)
+    if not episode then return false end
+    local value = tostring(episode)
+    if title:find("第" .. value .. "集", 1, true)
+       or title:find("第" .. value .. "话", 1, true)
+       or title:find("第" .. value .. "回", 1, true) then
+        return true
+    end
+    return title:lower():find("e" .. value, 1, true) ~= nil
+end
+
+-- extract_episode_number: 从「第 12 话 / 第12集 / 12」这类文本里取集数
+--
+-- ⚠️ 不要写成 `("第%s*(%d+)%s*[话集回]")`：
+--    Lua 字符类是**字节集**，`[话集回]` 展开成 {E8,AF,9D,E9,9B,86,E5,9B,9E}，
+--    「阶」(E9 98 B6)、「队」(E9 98 9F) 这类汉字首字节命中 E9 就会被误判成集数单位。
+-- ⇒ 逐个字面量单位比较。
+local EPISODE_UNIT_LABELS = { "话", "集", "回", "話" }
+
+function M.extract_episode_number(text)
+    if type(text) ~= "string" or text == "" then return nil end
+    for _, unit in ipairs(EPISODE_UNIT_LABELS) do
+        local n = text:match("第%s*(%d+)%s*" .. unit)
+        if n then return tonumber(n) end
+    end
+    local bare = text:match("^%s*(%d+)%s*$")
+    if bare then return tonumber(bare) end
+    return nil
+end
+
+-- format_subject_title: 中文条目名后附已识别的季、集信息。
+-- 仅用于界面标题；调用方仍以原始/清洗后的条目名查询 API。
+function M.format_subject_title(subject, fallback, season_num, episode_num)
+    local title = M.resolve_display_name(subject, fallback)
+    if title == "" then title = "未知条目" end
+
+    local season = clean_number(season_num)
+    if season and not has_season_label(title, season) then
+        local label = CHINESE_NUMERALS[season] or tostring(season)
+        title = title .. " 第" .. label .. "季"
+    end
+
+    local episode = clean_number(episode_num)
+    if episode and not has_episode_label(title, episode) then
+        title = title .. " 第" .. tostring(episode) .. "集"
+    end
+    return title
+end
+
 return M

@@ -218,21 +218,16 @@ function M.fetch()
                 title, season_num, on_done, on_progress, skip_extra)
         end,
         -- 搜索成功：subject 已写入缓存，拉取角色/职员
-        on_search_success = function(subject, entry_path)
-            -- 标题优先级：subject.name_cn → search_title_used（已过中文转换，必为中文）
-            --              → subject.name → media-title → "未知条目"
-            -- v1.6: name_cn 为空时优先用 search_title_used（中文），避免回退到 subject.name（可能是日文）
+        -- 标题统一走 format_display_title：
+        --   name_cn（已选条目的中文字段，繁转简）→ search_title_used → name → 兜底
+        --   季 / 集只作为展示后缀拼在后面，不参与条目搜索
+        on_search_success = function(subject, entry_path, context)
             local title = nil
-            if type(subject) == "table" then
-                if type(subject.name_cn) == "string" and subject.name_cn ~= "" then
-                    title = subject.name_cn
-                end
-            end
-            if not title or title == "" then title = search_title_used end
-            if not title or title == "" then
-                if type(subject) == "table" and type(subject.name) == "string" and subject.name ~= "" then
-                    title = subject.name
-                end
+            if type(deps.search_pipeline.format_display_title) == "function" then
+                title = deps.search_pipeline.format_display_title(
+                    subject, search_title_used, context)
+            else
+                title = search_title_used
             end
             if not title or title == "" then
                 title = mp.get_property("media-title") or "未知条目"

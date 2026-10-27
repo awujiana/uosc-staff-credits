@@ -410,6 +410,53 @@ dispatcher 的 `mp.observe_property("path", ...)` 回调：
 | get_all 返回 | `runtime_data` 表的浅拷贝（避免外部修改内部状态） |
 | 文件不存在/解析失败 | 静默返回空表，不报错 |
 
+### 4.9 显示名规范化（v1.10）
+
+**目标**：同一个条目在四个面板里显示同一个名字，且一律简体中文；季 / 集作为展示后缀。
+
+#### 4.9.1 统一入口
+
+所有面板的可见标题都走 `search_pipeline.format_display_title(subject, fallback, context)`，
+内部转调 `title_normalize.format_subject_title`：
+
+| 面板 | 改造点 |
+|------|--------|
+| 职员表 `features/staff_credits.lua` | `on_search_success` 改为 `format_display_title(subject, search_title_used, context)` |
+| 制作评分 `features/production_score_flow.lua` | 同上；`persons` 阶段兜底标题也改用 `resolve_display_name` |
+| 封面简介 `features/cover_intro_flow.lua` | `extract_title_or` → `display_title`（`on_cached_hit` / `on_search_success` 两处） |
+| 角色介绍 `features/character_cards.lua` | 同职员表 |
+| 搜索结果列表 `modules/menu.lua` | `r.name_cn or r.name` → `resolve_display_name(r)`；副标题（`r.name`）也过繁转简 |
+| 制作评分面板 `modules/production_score.lua` | `get_work_title` 走 `resolve_display_name` |
+| 封面简介面板 `modules/cover_intro.lua` | `get_name_cn` 走 `resolve_display_name` |
+
+#### 4.9.2 管线新增的 context
+
+`run_subject_pipeline` 在 `on_cached_hit` / `on_search_success` 上**多吐一个 `context`**：
+
+```lua
+context = { season_num = ..., episode_num = ... }
+```
+
+季、集来自三级来源（按顺序，先到先得）：
+
+1. uosc_danmaku 历史的 `episodeNumber`（或 `episodeTitle` 里的「第 N 话」）
+2. `guess.parse_title` 从文件名解析
+3. 都没有 → nil，标题不追加后缀
+
+即使弹幕关联已经给出了中文名，也**仍然会**调用 `guess.parse_title` 补季集 ——
+这是 v1.9 的行为差异：以前只在拿不到标题时才解析文件名，季集因此经常丢失。
+
+#### 4.9.3 回调签名变化（破坏性，仅内部）
+
+| 回调 | 旧签名 | 新签名 |
+|------|--------|--------|
+| `on_cached_hit` | `(cached, entry_path)` | `(cached, entry_path, context)` |
+| `on_search_success` | `(data, entry_path)` | `(data, entry_path, context)` |
+| `fetch_characters_from_source` 回调 | `(ok, chars, persons, err, source)` | 末尾多一个 `subject` |
+| `resolve_cached_title` 回调 | `(title)` | `(title, context)` |
+
+Lua 忽略多余实参，旧调用点不会崩，但拿不到 `context` 就拼不出季集后缀。
+
 ---
 
 ## 5. 配置项

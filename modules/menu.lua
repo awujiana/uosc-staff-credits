@@ -13,6 +13,7 @@
 local mp = require("mp")
 local msg = require("mp.msg")
 local utils = require("mp.utils")
+local title_normalize = require("modules.title_normalize")
 
 local M = {}
 
@@ -304,7 +305,8 @@ function M.show_main_menu()
             if ok then info = got end
         end
         if type(info) == "table" and info.id then
-            local label = info.name_cn
+            -- 与面板标题同一套规则：中文字段优先 + 繁转简
+            local label = title_normalize.resolve_display_name(info)
             if not label or label == "" then label = info.name end
             table.insert(items, {
                 title = "在浏览器打开",
@@ -552,11 +554,14 @@ function M.show_search_results(results, source)
 
     for _, r in ipairs(results) do
         if type(r) == "table" and r.id ~= nil then
-            local name = r.name_cn or r.name or "未知条目"
+            -- 列表主标题统一走规范化：中文字段优先 + 繁转简
+            local name = title_normalize.resolve_display_name(r)
+            if name == "" then name = "未知条目" end
             local icon = SUBJECT_TYPE_ICONS[r.type] or "category"
-            local hint = r.name or ""
+            -- 副标题保留原名（多为日文原名），同样做繁转简避免繁简混排
+            local hint = title_normalize.to_simplified(r.name or "")
             if r.name_cn and r.name and r.name_cn ~= r.name then
-                hint = r.name
+                hint = title_normalize.to_simplified(r.name)
             end
             table.insert(menu_items, {
                 title = name,

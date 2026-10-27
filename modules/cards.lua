@@ -12,6 +12,7 @@ local msg = require("mp.msg")
 local pagination = require("modules.pagination")
 local overlay_manager = require("modules.overlay_manager")
 local mouse_interaction = require("modules.mouse_interaction")
+local title_normalize = require("modules.title_normalize")
 
 local M = {}
 
@@ -85,26 +86,16 @@ local state = {
 -- v1.6: 角色介绍要求使用简体中文显示角色名
 local function resolve_character_name(char)
     if type(char) ~= "table" then return "未知角色" end
-    if type(char.name_cn) == "string" and char.name_cn ~= "" then
-        return char.name_cn
-    end
-    if type(char.name) == "string" and char.name ~= "" then
-        return char.name
-    end
-    return "未知角色"
+    local name = title_normalize.resolve_display_name(char)
+    return name ~= "" and name or "未知角色"
 end
 
 -- 解析 CV 名称：优先简体中文 name_cn，回退 name
 -- v1.6: 角色介绍要求 CV 名字使用简体中文
 local function resolve_cv_name(actor)
     if type(actor) ~= "table" then return nil end
-    if type(actor.name_cn) == "string" and actor.name_cn ~= "" then
-        return actor.name_cn
-    end
-    if type(actor.name) == "string" and actor.name ~= "" then
-        return actor.name
-    end
-    return nil
+    local name = title_normalize.resolve_display_name(actor)
+    return name ~= "" and name or nil
 end
 
 -- 检查角色是否有可用图片

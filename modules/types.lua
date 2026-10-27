@@ -36,6 +36,12 @@ function M.validate_char(data)
     if data.relation ~= nil then
         char.relation = tostring(data.relation)
     end
+    if data.name_cn ~= nil and data.name_cn ~= "" then
+        char.name_cn = tostring(data.name_cn)
+    end
+    if data.infobox ~= nil then
+        char.infobox = data.infobox
+    end
     return true, char
 end
 
@@ -63,6 +69,12 @@ function M.validate_person(data)
     }
     if data.type ~= nil then
         person.type = data.type
+    end
+    if data.name_cn ~= nil and data.name_cn ~= "" then
+        person.name_cn = tostring(data.name_cn)
+    end
+    if data.infobox ~= nil then
+        person.infobox = data.infobox
     end
     return true, person
 end

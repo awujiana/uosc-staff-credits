@@ -381,8 +381,10 @@ function M.get_subject_persons(subject_id, server_url, callback)
             if ok then
                 -- 保留可选字段
                 if item.relation then validated.relation = item.relation end
+                if item.name_cn and item.name_cn ~= "" then validated.name_cn = item.name_cn end
                 if item.images then validated.images = item.images end
                 if item.actors then validated.actors = item.actors end
+                if item.infobox then validated.infobox = item.infobox end
                 if item.type then validated.type = item.type end
                 table.insert(persons, validated)
             end

@@ -130,13 +130,14 @@ function M.fetch()
             search_title_used = title  -- 捕获已过中文转换的标题
             deps.search_pipeline.fetch_characters_from_source(
                 title, season_num, on_progress,
-                function(success, characters, persons, err_info, source_name)
+                function(success, characters, persons, err_info, source_name, subject)
                     local data = nil
                     if success then
                         data = {
                             characters = characters,
                             persons = persons,
                             source_name = source_name,
+                            subject = subject,
                             -- 携带搜索使用的标题，供 on_search_success 使用
                             title = title,
                         }
@@ -146,7 +147,7 @@ function M.fetch()
                 skip_extra)
         end,
         -- 搜索成功：展示角色卡片
-        on_search_success = function(data, entry_path)
+        on_search_success = function(data, entry_path, context)
             if deps.state.search_state.current_path ~= entry_path then return end
             if type(data) ~= "table" then return end
             -- 标题优先级：data.title（搜索时传入，已过中文转换）
@@ -155,6 +156,9 @@ function M.fetch()
             local title = data.title or search_title_used
             if not title or title == "" then
                 title = mp.get_property("media-title") or "未知条目"
+            end
+            if type(deps.search_pipeline.format_display_title) == "function" then
+                title = deps.search_pipeline.format_display_title(data.subject, title, context)
             end
             show_cards(data.characters, title)
         end,
