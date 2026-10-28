@@ -119,8 +119,9 @@ GET /repos/awujiana/uosc-staff-credits/commits/<old-sha>   →  422 No commit fo
       工单里需要给出旧提交的完整 SHA —— 该值不写进本仓库，见维护者本地笔记。
 - [ ] 工单处理完后复核：用 `GET /repos/Tony15246/uosc_danmaku/commits/<old-sha>`
       确认返回 404 / 422，而不是 200。
-- [ ] `uosc-staff-credits` 第二轮重写后仍需再删库一次：本仓库虽非 fork，
-      `force push` 后的旧提交仍可按 SHA 直查，只有删库才能销毁对象。
+- [x] `uosc-staff-credits` 第二轮重写后旧提交仍可按 SHA 直查，已再删库一次并重建
+      （分支 + `v1.12.0` 标签 + Release 全部恢复）。复核：6 个历史旧 SHA 全部返回
+      `422 No commit found`，`git log`、历史版本 `README.md`、提交元数据三处均无旧邮箱。
 
 ## 备份与恢复
 
@@ -138,4 +139,5 @@ GET /repos/awujiana/uosc-staff-credits/commits/<old-sha>   →  422 No commit fo
 git clone uosc-staff-credits.bundle <dir>
 ```
 
-注意 bundle 里是**清理后**的历史，不含旧邮箱；它只是防止误删整个仓库，不能用来找旧提交。
+注意 bundle 只包含引用可达的历史，不含悬空对象。`uosc-staff-credits` 的 bundle 在
+第二轮重写后重新打过一次，因此是干净的；它只是防止误删整个仓库，不能用来找旧提交。
