@@ -156,7 +156,7 @@ script-message staff-credits-search bangumi       # 条目搜索
 
 - **作者**：awujiana
 - **GitHub**：[@awujiana](https://github.com/awujiana)
-- **邮箱**：待补充（欢迎通过 Issue 联系）
+- **邮箱**：[bingshanlengtie@qq.com](mailto:bingshanlengtie@qq.com)
 
 ## 📄 开源协议
 

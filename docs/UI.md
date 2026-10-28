@@ -1208,31 +1208,31 @@ v1.7 抽取了 3 个通用组件，替代各面板中重复的内联代码，统
 
 ## 14. 相关文件路径汇总
 
-所有路径均为绝对路径：
+路径均相对于脚本目录 `~~/scripts/uosc_staff_credits/`：
 
 | 文件 | 路径 |
 |------|------|
-| 主入口 | `d:\Software\PlayerSoftware\MPV\MPV_config\mpv_config-2025.11.28\mpv_config-2025.11.28\portable_config\scripts\uosc_staff_credits\main.lua` |
-| 职员表 feature | `...\scripts\uosc_staff_credits\features\staff_credits.lua` |
-| 角色介绍 feature | `...\scripts\uosc_staff_credits\features\character_cards.lua` |
-| 封面简介 feature | `...\scripts\uosc_staff_credits\features\cover_intro_flow.lua` |
-| BGM 搜索 feature | `...\scripts\uosc_staff_credits\features\subject_select.lua` |
-| 制作评分 feature | `...\scripts\uosc_staff_credits\features\production_score_flow.lua` |
-| 角色介绍面板 | `...\scripts\uosc_staff_credits\modules\cards.lua` |
-| 封面简介面板 | `...\scripts\uosc_staff_credits\modules\cover_intro.lua` |
-| 制作评分面板 | `...\scripts\uosc_staff_credits\modules\production_score.lua` |
-| ASS 渲染库 | `...\scripts\uosc_staff_credits\modules\ass_lib.lua` |
-| UI 基础设施 | `...\scripts\uosc_staff_credits\modules\ui_base.lua` |
-| uosc menu 集成 | `...\scripts\uosc_staff_credits\modules\menu.lua` |
-| 搜索管线（含中文标题转换） | `...\scripts\uosc_staff_credits\app\search_pipeline.lua` |
-| 加载控制器 | `...\scripts\uosc_staff_credits\app\loading_controller.lua` |
-| 通知系统 | `...\scripts\uosc_staff_credits\modules\notify.lua` |
-| 图片转换工具 | `...\scripts\uosc_staff_credits\modules\utils\image.lua` |
-| 鼠标输入服务 | `...\scripts\uosc_staff_credits\modules\input_service.lua` |
-| 默认配置 | `...\scripts\uosc_staff_credits\modules\defaults.lua` |
-| 通用翻页组件（v1.7） | `...\scripts\uosc_staff_credits\modules\pagination.lua` |
-| 通用 Overlay 管理器（v1.7） | `...\scripts\uosc_staff_credits\modules\overlay_manager.lua` |
-| 通用鼠标交互 mixin（v1.7） | `...\scripts\uosc_staff_credits\modules\mouse_interaction.lua` |
+| 主入口 | `main.lua` |
+| 职员表 feature | `features/staff_credits.lua` |
+| 角色介绍 feature | `features/character_cards.lua` |
+| 封面简介 feature | `features/cover_intro_flow.lua` |
+| BGM 搜索 feature | `features/subject_select.lua` |
+| 制作评分 feature | `features/production_score_flow.lua` |
+| 角色介绍面板 | `modules/cards.lua` |
+| 封面简介面板 | `modules/cover_intro.lua` |
+| 制作评分面板 | `modules/production_score.lua` |
+| ASS 渲染库 | `modules/ass_lib.lua` |
+| UI 基础设施 | `modules/ui_base.lua` |
+| uosc menu 集成 | `modules/menu.lua` |
+| 搜索管线（含中文标题转换） | `app/search_pipeline.lua` |
+| 加载控制器 | `app/loading_controller.lua` |
+| 通知系统 | `modules/notify.lua` |
+| 图片转换工具 | `modules/utils/image.lua` |
+| 鼠标输入服务 | `modules/input_service.lua` |
+| 默认配置 | `modules/defaults.lua` |
+| 通用翻页组件（v1.7） | `modules/pagination.lua` |
+| 通用 Overlay 管理器（v1.7） | `modules/overlay_manager.lua` |
+| 通用鼠标交互 mixin（v1.7） | `modules/mouse_interaction.lua` |
 
 ---
 
