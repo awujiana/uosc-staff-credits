@@ -3,6 +3,24 @@
 本文件记录 `uosc_staff_credits` 的重要变更，版本号遵循语义化版本 `MAJOR.MINOR.PATCH`。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.11.0] - 2026-10-28
+
+### 新增
+
+- `dicts/shinjitai_chars.lua`：日文新字体 → 简体补充表（约 150 条，动画标题高频），
+  覆盖 `転 / 撃 / 変 / 戦 / 図 / 気 / 実` 等既非繁体也非简体的第三种字形。
+  `title_normalize.load_t2s` 在共享 t2s 字典加载后**只补空位、不覆盖**地叠加：
+  t2s 已验证的繁体映射优先；补充表缺失仅影响新字体字（warn），不禁用整个转换。
+  此前 `無職転生` 只能转出 `无职転生`，现输出 `无职转生`；`呪術廻戦 → 咒术回战`。
+- 仓库开源四件套：`README.md`（双名标题、AI 声明、徽章、底部三节）、
+  `CONTRIBUTING.md`（含完整命名规范与 Lua 禁令）、`AGENTS.md`（AI 约定）、
+  `LICENSE`（AGPL-3.0 全文）。
+
+### 改进
+
+- `tests/title_parse_flow` 新增日文新字体回归用例
+  （`無職転生` / `呪術廻戦` / `進撃の巨人` 混合转换），字典不可用时自动跳过。
+
 ## [1.10.0] - 2026-10-27
 
 ### 新增

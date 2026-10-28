@@ -78,6 +78,22 @@ local function load_t2s()
         return nil
     end
 
+    -- 叠加日文新字体补充表（転 / 撃 / 変 / 図 等既非繁体也非简体，t2s 查不到）。
+    -- 只补空位、不覆盖：t2s 里经过验证的繁体映射优先，防止把已验证行为改坏。
+    local ok3, shinjitai = pcall(dofile, base .. "/uosc_staff_credits/dicts/shinjitai_chars.lua")
+    if ok3 and type(shinjitai) == "table" then
+        for c, v in pairs(shinjitai) do
+            if dict[c] == nil then
+                dict[c] = v
+            end
+        end
+        msg.verbose("[title_normalize] 日文新字体补充表已叠加")
+    else
+        -- 补充表缺失只影响新字体字，不 disable 整个转换
+        msg.warn("[title_normalize] 载入新字体补充表失败（日文字形将不转换）: "
+            .. base .. "/uosc_staff_credits/dicts/shinjitai_chars.lua")
+    end
+
     t2s = dict
     msg.verbose("[title_normalize] t2s 字典已载入")
     return t2s

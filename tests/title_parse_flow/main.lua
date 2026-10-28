@@ -112,6 +112,17 @@ local function run()
         "宫崎骏",
         "有中文译名时取中文译名")
 
+    -- ---- 5. 日文新字体转换（転 / 撃 既非繁体也非简体，需补充表）----
+    -- 字典不可用时（非 mpv 环境）to_simplified 原样返回，此时跳过而非失败
+    local converted = title_normalize.to_simplified("無職転生")
+    if not converted:find("転", 1, true) then
+        assert_equal(converted, "无职转生", "新字体+繁体混合：無職転生")
+        assert_equal(title_normalize.to_simplified("呪術廻戦"), "咒术回战",
+            "呪(新字体)+術(繁体)+廻(新字体) 混合")
+        assert_equal(title_normalize.to_simplified("進撃の巨人"), "进击の巨人",
+            "繁体 撃 转换，假名保留")
+    end
+
     if failures > 0 then
         mp.msg.error(string.format("[title_parse_flow] FAIL: %d assertion(s) failed", failures))
     else
