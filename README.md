@@ -124,6 +124,7 @@ script-message staff-credits-search bangumi       # 条目搜索
 - [渲染实现](docs/ASS_RENDERING.md)
 - [界面设计](docs/UI.md)
 - [架构设计](docs/DESIGN.md)
+- [uosc_danmaku 集成参考](docs/UOSC_DANMAKU_API.md)
 - [项目总览](docs/PROJECT.md)
 
 > 测试见 `tests/` 目录（测试文档与用例默认不展开，需要时再补充）。

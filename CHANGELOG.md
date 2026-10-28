@@ -15,6 +15,10 @@
 - 仓库开源四件套：`README.md`（双名标题、AI 声明、徽章、底部三节）、
   `CONTRIBUTING.md`（含完整命名规范与 Lua 禁令）、`AGENTS.md`（AI 约定）、
   `LICENSE`（AGPL-3.0 全文）。
+- `docs/UOSC_DANMAKU_API.md`：将「uosc_danmaku 接口调研」草稿整理为正式集成参考
+  （27 个入站接口清单、user-data 属性、中文名获取 4 方案、`danmaku-history.json`
+  全结构），并对照 mpv-20260831 版本补注差异（接口 33 个 / user-data 4 个）；
+  原 `docs/新建 Markdown.md` 草稿删除。
 
 ### 改进
 
