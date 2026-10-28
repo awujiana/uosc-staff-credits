@@ -21,6 +21,7 @@
 | `apis/` | 数据源适配（Bangumi / 镜像 / dandanplay / TMDB / 360kan） | ✅ |
 | `dicts/` | 字典数据（`shinjitai_chars.lua` 日文新字体 → 简体补充表） | ✅ |
 | `docs/` | 操作文档（配置 / 渲染 / 界面 / 架构） | ✅ |
+| `docs/internal/` | 内部维护记录（审查归档、隐私清理），不进 README 索引 | ✅（仅存档） |
 | `tests/` | 回归测试（`title_parse_flow` / `ass_render_flow`） | ✅（不进文档索引） |
 | `CHANGELOG.md` | 更新日志（按版本累积记录） | ✅ |
 | `README.md` / `CONTRIBUTING.md` / `AGENTS.md` / `LICENSE` | 仓库四件套 | ✅ |
@@ -36,6 +37,7 @@
 7. **协议**：AGPL-3.0，`LICENSE` 不许改动。
 8. **文档索引**：README「文档」节只列操作文档；`tests/` 不进索引，最多一句话提示。
 9. **提交信息**：说明「做了什么 / 为什么」；`main` 分支直接提交（单人仓库）或从 `main` 切特性分支。
+10. **提交身份**：`git config user.email` 必须是 `bingshanlengtie@qq.com`。旧邮箱一旦进了提交元数据，「改文件」和 `force push` 都清不掉——普通仓库要靠删库重建，fork 仓库只能请 GitHub Support 做 GC。详见 `docs/internal/GITHUB_PRIVACY_CLEANUP.md`。
 
 ## 改动前检查
 

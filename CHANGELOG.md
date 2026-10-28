@@ -3,6 +3,15 @@
 本文件记录 `uosc_staff_credits` 的重要变更，版本号遵循语义化版本 `MAJOR.MINOR.PATCH`。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [未发布]
+
+### 维护
+
+- 作者邮箱清理：`README` 联系方式与全部提交元数据改用新邮箱，历史经重写后**删库重建**，
+  旧提交 SHA 已随对象销毁（查询返回 422），不再可从本仓库取到。过程与遗留问题记录在
+  `docs/internal/GITHUB_PRIVACY_CLEANUP.md`。
+- `AGENTS.md`：新增「提交身份」约定，`docs/internal/` 纳入目录说明。
+
 ## [1.12.0] - 2026-10-28
 
 ### 新增
