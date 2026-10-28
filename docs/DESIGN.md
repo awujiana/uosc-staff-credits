@@ -155,7 +155,7 @@ bootstrap 还注入若干闭包函数，捕获 `bootstrap.modules` 上下文：
 - `format_error_message(err_info, default_msg)` — 错误码转中文提示
 - `debug_log(...)` — 受 opts.debug 门控
 - `get_current_title()` — 调用 `guess.parse_title()`
-- `get_danmaku_info()` — 读取弹幕关联信息
+- `get_danmaku_info()` — 读取弹幕关联信息（`danmaku_link.get_info()`：实时广播 → user-data → 历史文件）
 - `fallback_to_subject_list_search(title, source, danmaku_info)` — 搜索失败回退
 
 ---
@@ -810,7 +810,7 @@ if deps.state.search_state.last_subject_by_path[path] ~= nil then return end  --
 path_observer(path)
    ↓
 search_pipeline.resolve_title_sync()  -- 4 级优先级同步获取基础标题
-   1. get_danmaku_info().anime            (弹幕关联中文名，需 uosc_danmaku 暴露)
+   1. get_danmaku_info().anime            (弹幕关联中文名：fork 版实时广播 → user-data → 历史文件)
    2. state.get_last_subject(path).name_cn (subject 缓存中文名，独立于 uosc_danmaku)
    3. get_current_title()                 (文件名解析)
    4. mp.get_property("media-title")      (media-title 兜底)

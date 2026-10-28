@@ -3,6 +3,26 @@
 本文件记录 `uosc_staff_credits` 的重要变更，版本号遵循语义化版本 `MAJOR.MINOR.PATCH`。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.12.0] - 2026-10-28
+
+### 新增
+
+- 接入 `uosc_danmaku` fork 版的**出站广播**：`modules/danmaku_link.lua` 监听
+  `danmaku-anime-info` 消息（`anime, episode, episode_id, api_server, path`），
+  并读取 `user-data/uosc_danmaku/anime-title|anime-episode|anime-episode-id|anime-api-server`。
+  取数优先级改为：实时广播 → user-data → `danmaku-history.json`。
+  换来三件事：中文名不再靠历史文件按路径猜、`episodeId` 可直接复用、
+  集数不必再从「第3话」字符串里正则抠。
+- `tests/danmaku_info_flow`：广播解析、path 新鲜度校验、换片清场、user-data 兜底、
+  `-` 占位还原的回归测试。
+
+### 改进
+
+- 换片时 `uosc_danmaku` 先清空匹配结果再广播，避免外部脚本读到上一部片的标题。
+- `docs/UOSC_DANMAKU_API.md`：新增「方案 0：主动广播」；「推荐 3」由
+  「不可行」改写为 fork 已实现，并记录加载顺序与陈旧数据两个坑。
+- README 关联仓库与致谢指向 `awujiana/uosc_danmaku`。
+
 ## [1.11.0] - 2026-10-28
 
 ### 新增

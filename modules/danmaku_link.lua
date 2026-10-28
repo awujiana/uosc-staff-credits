@@ -58,30 +58,90 @@ local function build_info(record)
     }
 end
 
--- get_info: 主入口
--- 读取 danmaku-history.json 并匹配当前播放视频
--- 返回 {anime, episode, episode_number, episode_id, api_server} 或 nil
-function M.get_info()
-    -- 0. 优先读取 uosc_danmaku 实时设置的 user-data 属性（最准确，实时匹配结果）
-    --    uosc_danmaku 在 show_loaded 和历史读取时设置 ANIME_TITLE 属性
-    --    动态检测脚本名，避免硬编码
+-- 实时广播缓存（uosc_danmaku fork 版主动推送）
+local live = nil
+
+-- 广播协议用 "-" 占位空字段，这里还原成 nil
+local function dash_to_nil(value)
+    if type(value) ~= "string" or value == "" or value == "-" then return nil end
+    return value
+end
+
+-- on_anime_info: 接收 uosc_danmaku 的 danmaku-anime-info 广播
+-- 参数：anime, episode, episode_id, api_server, path（空值用 "-" 占位）
+function M.on_anime_info(anime, episode, episode_id, api_server, path)
+    anime = dash_to_nil(anime)
+    if not anime then
+        -- 空广播 = uosc_danmaku 换片清场
+        live = nil
+        return
+    end
+    live = {
+        anime = anime,
+        episode = dash_to_nil(episode),
+        episode_id = dash_to_nil(episode_id),
+        api_server = dash_to_nil(api_server),
+        path = dash_to_nil(path),
+    }
+    mp.msg.verbose("[danmaku_link] anime-info: " .. anime ..
+        " / " .. tostring(live.episode) ..
+        " / id=" .. tostring(live.episode_id))
+end
+
+mp.register_script_message("danmaku-anime-info", M.on_anime_info)
+
+-- info_from_user_data: 读取 uosc_danmaku 写入的 user-data 属性
+-- 动态遍历脚本名，不硬编码 "uosc_danmaku"
+local function info_from_user_data()
     local user_data = mp.get_property_native("user-data")
-    if type(user_data) == "table" then
-        for script_key, script_data in pairs(user_data) do
-            if type(script_data) == "table" and type(script_data["anime-title"]) == "string"
-               and script_data["anime-title"] ~= "" then
-                mp.msg.info("[danmaku_link] found anime-title from " .. tostring(script_key) .. ": " .. script_data["anime-title"])
-                return { anime = script_data["anime-title"] }
+    if type(user_data) ~= "table" then return nil end
+    for _, script_data in pairs(user_data) do
+        if type(script_data) == "table" then
+            local anime = script_data["anime-title"]
+            if type(anime) == "string" and anime ~= "" then
+                return {
+                    anime = anime,
+                    episode = dash_to_nil(script_data["anime-episode"]),
+                    episode_id = dash_to_nil(script_data["anime-episode-id"]),
+                    api_server = dash_to_nil(script_data["anime-api-server"]),
+                }
             end
         end
     end
-    mp.msg.info("[danmaku_link] no anime-title in user-data, user_data type=" .. type(user_data))
+    return nil
+end
 
-    -- 1. 获取当前路径
-    local path = mp.get_property("path")
+-- get_info: 主入口
+-- 返回 {anime, episode, episode_number, episode_id, api_server} 或 nil
+--
+-- 取数优先级（从最准到最猜）：
+--   0. uosc_danmaku 主动广播的实时结果（fork 版，见 docs/UOSC_DANMAKU_API.md）
+--   1. uosc_danmaku 写入的 user-data 持久属性（脚本加载顺序无关）
+--   2. danmaku-history.json 按路径匹配（上游原版唯一可用的方式）
+function M.get_info()
+    local cur_path = mp.get_property("path")
+
+    -- 0. 实时广播缓存。带上 path 校验：换片后即使没收到新消息，
+    --    旧结果也不会被当成当前视频的匹配。
+    if live and (not live.path or live.path == cur_path) then
+        return {
+            anime = live.anime,
+            episode = live.episode,
+            episode_number = live.episode_number,
+            episode_id = live.episode_id,
+            api_server = live.api_server,
+        }
+    end
+
+    -- 1. user-data 持久属性
+    local from_user_data = info_from_user_data()
+    if from_user_data then return from_user_data end
+
+    -- 2. 获取当前路径
+    local path = cur_path
     if not path then return nil end
 
-    -- 2. 读取历史文件
+    -- 3. 读取历史文件
     local history = M.read_raw()
     if not history then return nil end
 

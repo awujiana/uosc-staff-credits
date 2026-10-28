@@ -111,7 +111,8 @@ script-message staff-credits-search bangumi       # 条目搜索
 ## ⚠️ 注意事项
 
 - 必须安装 [uosc](https://github.com/tomasklaen/uosc)，本脚本的菜单与面板依赖它渲染。
-- 可选安装 `uosc_danmaku` 弹幕扩展脚本：两者同时存在时通过 `user-data` 共享实时匹配的中文名；没有也不影响本脚本独立工作。
+- 可选安装 `uosc_danmaku` 弹幕扩展脚本：两者同时存在时通过 `user-data` 与 `danmaku-anime-info` 消息共享实时匹配的中文名；没有也不影响本脚本独立工作。
+- 推荐使用 [awujiana/uosc_danmaku](https://github.com/awujiana/uosc_danmaku)（fork 版）：它在 `show_loaded` 后主动导出匹配结果（番剧名 / 集数 / episodeId）。装上游原版时会自动降级为读历史文件猜测，功能不中断但可能滞后。
 - 中文转换依赖 `~~/scripts/uosc_danmaku/dicts/t2s_chars.lua` 共享字典；该文件缺失时繁体转换自动禁用（新字体补充表随本仓库自带）。
 - 所有数据来自公开 API（Bangumi / dandanplay / TMDB / 360kan），请遵守各数据源的使用频率约束，脚本内置缓存与请求取消机制。
 - 配置项与默认值见 [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)，修改 `script-opts/uosc_staff_credits.conf` 即可。
@@ -141,7 +142,7 @@ script-message staff-credits-search bangumi       # 条目搜索
 ## 🙏 参考与致谢
 
 - [uosc](https://github.com/tomasklaen/uosc) — mpv 现代化 UI 框架，本脚本的菜单与交互基础
-- `uosc_danmaku` — mpv 弹幕扩展脚本，共享繁简字典与实时标题匹配
+- [awujiana/uosc_danmaku](https://github.com/awujiana/uosc_danmaku) — mpv 弹幕扩展脚本 fork，导出实时匹配结果并共享繁简字典
 - [Bangumi API](https://github.com/bangumi/api) — 条目、角色、职员数据
 - [dandanplay](https://www.dandanplay.com/) — 文件名匹配与中文标题转换
 - [TMDB](https://www.themoviedb.org/) — 中文标题候选
@@ -149,7 +150,7 @@ script-message staff-credits-search bangumi       # 条目搜索
 ## 🔗 关联仓库
 
 - [awujiana/uosc-staff-credits](https://github.com/awujiana/uosc-staff-credits) — 本仓库
-- 其余关联项目待补充
+- [awujiana/uosc_danmaku](https://github.com/awujiana/uosc_danmaku) — 配套弹幕脚本 fork（提供 `danmaku-anime-info` 出站广播）
 
 ## 📮 作者联系方式
 

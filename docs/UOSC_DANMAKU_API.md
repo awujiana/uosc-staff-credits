@@ -11,7 +11,12 @@
 > `input-event` / `open_blacklist_menu` / `show_danmaku_count`；
 > user-data 属性 2 → **4 个**（新增 `danmaku-switch-on` / `danmaku-count`）；
 > 新增搜索历史文件 `~~/danmaku-search-history.json`。
-> 「无查询当前番剧接口」这一核心结论在两个版本中均成立。
+>
+> **⚠️ fork 版差异**：上游原版「无查询当前番剧接口」的结论仍然成立，但本仓库
+> 使用 fork（<https://github.com/awujiana/uosc_danmaku>）补上了**出站广播**：
+> 4 个 user-data 属性 + `danmaku-anime-info` script-message，外部脚本可直接拿到
+> 当前匹配的番剧名 / 集数 / episodeId。见
+> [方案 0](#方案-0主动广播本仓库-fork-版首选)。
 
 ---
 
@@ -21,6 +26,7 @@
 - [script-message 入站接口清单](#script-message-入站接口清单)
 - [暴露给外部的 user-data 属性](#暴露给外部的-user-data-属性)
 - [获取中文名的可行方案](#获取中文名的可行方案)
+  - [方案 0：主动广播（本仓库 fork 版首选）](#方案-0主动广播本仓库-fork-版首选)
 - [danmaku-history.json 文件结构](#danmaku-historyjson-文件结构)
 - [推荐的集成方式](#推荐的集成方式)
 - [关键文件路径](#关键文件路径)
@@ -104,7 +110,7 @@ scripts/uosc_danmaku/
 
 ## 暴露给外部的 user-data 属性
 
-基线版本仅暴露两个属性，**没有**暴露当前番剧信息：
+上游基线版本仅暴露两个属性，**没有**暴露当前番剧信息：
 
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
@@ -115,13 +121,60 @@ scripts/uosc_danmaku/
 > `user-data/<script_name>/danmaku-count`（弹幕条数）；仍不含番剧标题信息。
 > 属性前缀实际使用 `mp.get_script_name()`，通常即 `uosc_danmaku`。
 
+### fork 版新增（匹配结果）
+
+在本仓库的 fork 中，`show_loaded`（弹幕真正渲染成功的收敛点）会写入以下属性；
+换片时（`file-loaded`）先清空再广播，因此读到的一定是**当前视频**的匹配结果：
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `user-data/uosc_danmaku/anime-title` | 字符串 | 匹配到的番剧名（dandanplay 的 `animeTitle`，通常是中文） |
+| `user-data/uosc_danmaku/anime-episode` | 字符串 | 集标题，如 `第3话`；无则为空串 |
+| `user-data/uosc_danmaku/anime-episode-id` | 字符串 | dandanplay `episodeId`；未走该源时为空串 |
+| `user-data/uosc_danmaku/anime-api-server` | 字符串 | 实际使用的 API 服务器 |
+
+为什么同时保留 user-data 和 script-message 两条通道：mpv 按脚本名顺序加载，
+`uosc_danmaku` 先于 `uosc_staff_credits`，纯消息会漏掉首次广播；
+user-data 是持久状态，随时可读，天然解决加载顺序问题。
+
 ## 获取中文名的可行方案
 
 没有专门的「翻译为中文名」接口。但 `uosc_danmaku` 内部的 `DANMAKU.anime`
 字段实际已经持有中文名（`DANMAKU` 是脚本内部 Lua 全局表，含
-`.anime / .episode / .source / .api_server / .extra`，**外部脚本无法直接读取**）。
+`.anime / .episode / .source / .api_server / .extra`，上游原版**外部脚本无法直接读取**）。
 
-### 方案 A：直接走弹弹play API（首选，已是中文名）
+### 方案 0：主动广播（本仓库 fork 版首选）
+
+fork（<https://github.com/awujiana/uosc_danmaku>）在 `main.lua` 中新增
+`broadcast_anime_info()`，于 `show_loaded()` 末尾调用，同时写 user-data 并广播：
+
+```lua
+mp.commandv("script-message", "danmaku-anime-info",
+    anime, episode, episode_id, api_server, path)
+-- 空字段用 "-" 占位，保证参数位固定
+```
+
+接收侧（`uosc_staff_credits/modules/danmaku_link.lua`）：
+
+```lua
+mp.register_script_message("danmaku-anime-info", function(anime, episode, id, server, path)
+    -- 用 path 做新鲜度校验：换片后旧消息不会被误用
+end)
+```
+
+完整取数优先级：
+
+| 顺序 | 来源 | 说明 |
+| --- | --- | --- |
+| 0 | `danmaku-anime-info` 消息 | 实时，含 `episode_id`，path 校验防陈旧 |
+| 1 | user-data 四个属性 | 持久，补上「脚本后加载漏掉首帧广播」的情况 |
+| 2 | `danmaku-history.json` | 上游原版唯一可用方式，按路径猜，可能过期 |
+
+**优点**：零额外网络请求、拿到的是 dandanplay 已确认的中文名与 `episodeId`、
+集数不需要再用正则从 `第3话` 里抠。
+**代价**：需要维护 fork（上游更新时 `main.lua` 有冲突风险，改动点仅 3 处）。
+
+### 方案 A：直接走弹弹play API（上游原版首选）
 
 弹弹play 的 `/api/v2/search/anime` 返回的 `animeTitle` 对中文番剧默认就是中文名。
 历史记录实证：
@@ -346,18 +399,22 @@ GET https://api.tmdb.org/3/search/{tv|movie}?api_key=<key>&query=<关键词>&lan
 - 自行实现签名（参考 `apis/dandanplay.lua` 的 `generateXSignature`，
   需要 AES-ECB + SHA256 + Base64，KEY 内置于 `main.lua`）
 
-### 推荐 3：被动监听内部消息（不推荐，当前不可行）
+### 推荐 3：被动监听内部消息（上游原版不可行 → 本仓库已 fork 解决）
 
-`uosc_danmaku` 没有主动广播「当前番剧信息」的出站消息；`show_loaded` 只通过
-OSD 显示「匹配内容：{anime}-{episode}」，无法被外部脚本结构化捕获。
-除非 fork 修改源码，在 `set_episode_id` / `show_loaded` 中加一行：
+**上游原版**：`uosc_danmaku` 没有主动广播「当前番剧信息」的出站消息；
+`show_loaded` 只通过 OSD 显示「匹配内容：{anime}-{episode}」，无法被外部脚本
+结构化捕获，只能读历史文件猜。
 
-```lua
-mp.commandv("script-message-to", "<your_script>", "anime-info",
-    DANMAKU.anime, DANMAKU.episode)
-```
+**本仓库 fork 已实现**，见 [方案 0](#方案-0主动广播本仓库-fork-版首选)：
+`show_loaded()` 末尾调用 `broadcast_anime_info()`，输出 4 个 user-data 属性 +
+一条 `danmaku-anime-info` 消息（5 个参数，空值用 `-` 占位）。
 
-这是唯一能实现实时结构化输出的途径。
+要注意的两个坑（都已在实现里处理）：
+
+1. **加载顺序**：mpv 按脚本名排序加载，`uosc_danmaku` 早于
+   `uosc_staff_credits`，只发消息会漏掉首次广播 → 必须同时写 user-data。
+2. **陈旧数据**：换片后 `DANMAKU` 表可能还留着上一部的值 → 在
+   `file-loaded` 里先 `clear_anime_info()`，并在消息里带 `path` 供接收方校验。
 
 ### 推荐 4：TMDB 中文翻译（仅适合非中文文件名）
 
@@ -368,9 +425,10 @@ mp.commandv("script-message-to", "<your_script>", "anime-info",
 
 | 需求 | 推荐方案 |
 | --- | --- |
+| 实时拿到当前番剧名 / 集数（fork 环境） | 方案 0（`danmaku-anime-info` + user-data） |
 | 获取已播放过的番剧中文名 | 推荐 1（读 history.json） |
 | 获取新番剧的中文名 + 剧集列表 | 推荐 2（调用 dandanplay API） |
-| 仅获取当前文件的中文标题用于显示 | 推荐 1 优先，miss 时降级推荐 2 |
+| 上游原版环境、仅获取当前文件的中文标题 | 推荐 1 优先，miss 时降级推荐 2 |
 
 ## 关键文件路径
 
@@ -389,14 +447,16 @@ mp.commandv("script-message-to", "<your_script>", "anime-info",
 
 ## 核心结论
 
-1. **没有**专门「获取中文名」的出站 script-message 接口；中文名来自 dandanplay API
-   返回的 `animeTitle` 字段（默认即中文），由脚本内部使用，未对外暴露。
+1. **上游原版没有**「获取中文名」的出站 script-message 接口；中文名来自 dandanplay
+   返回的 `animeTitle`，只在脚本内部使用。本仓库 fork 已把这块补成正式出站协议
+   （user-data 4 属性 + `danmaku-anime-info` 消息）。
 2. 基线版本共 **27 个**入站接口（main.lua 9 + extra.lua 2 + menu.lua 16；
-   2026-08 版本 33 个），全部是控制类，无「查询当前番剧」接口。
-3. `danmaku-history.json` 包含完整的中文名信息（`animeTitle` 字段），按文件路径 /
-   目录路径索引，是外部脚本最易复用的数据源。
-4. `DANMAKU` 全局表是内部的，外部脚本无法直接读取当前番剧；只能通过历史文件或
-   自行调用 dandanplay API 间接获取。
-5. 如需实时结构化输出，必须给 `uosc_danmaku` 打补丁，在 `set_episode_id` /
-   `show_loaded` / `write_history` 等位置增加
-   `mp.commandv("script-message-to", "<target>", "anime-info", ...)` 广播。
+   2026-08 版本 33 个），全部是控制类；fork 在此基础上新增 1 个**出站**消息，
+   未改动任何入站接口。
+3. `danmaku-history.json` 包含完整中文名（`animeTitle`），按文件路径 / 目录路径
+   索引，是上游原版环境下的备选数据源——但它只记录「播放过什么」，
+   不保证与当前视频同步。
+4. `DANMAKU` 全局表仍是脚本内部的，外部脚本读不到；fork 通过
+   `broadcast_anime_info()` 把它显式导出，读取路径收敛到两条通道。
+5. 若换回上游原版，`uosc_staff_credits` 会自动降级到 user-data → 历史文件，
+   功能不中断，只是失去实时性与 `episode_id`。
