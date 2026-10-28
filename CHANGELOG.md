@@ -10,6 +10,9 @@
 - 作者邮箱清理：`README` 联系方式与全部提交元数据改用新邮箱，历史经重写后**删库重建**，
   旧提交 SHA 已随对象销毁（查询返回 422），不再可从本仓库取到。过程与遗留问题记录在
   `docs/internal/GITHUB_PRIVACY_CLEANUP.md`。
+- 第二轮补漏：旧邮箱还藏在一条提交信息的正文和该版本 `README.md` 里，改用
+  `filter-repo --replace-text` + `--message-callback` 一并替换，并按「提交信息 / 每个版本的文件内容 /
+  提交元数据」三处全量校验。教训记入上述文档 §2。
 - `AGENTS.md`：新增「提交身份」约定，`docs/internal/` 纳入目录说明。
 
 ## [1.12.0] - 2026-10-28
