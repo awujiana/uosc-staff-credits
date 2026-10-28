@@ -1,5 +1,10 @@
 # uosc_staff_credits 脚本审查与合并评估报告
 
+> **归档文档**：本文是 2026-10-05 的一次性脚本审查与合并评估记录，保留作决策溯源，
+> **不是现行规范**。架构与接口以 [../DESIGN.md](../DESIGN.md) 为准，配置以
+> [../CONFIGURATION.md](../CONFIGURATION.md) 为准。文中的行数、文件清单与问题列表
+> 反映的是审查当时的状态，部分问题其后已修复。
+
 > 审查对象：`portable_config/scripts/uosc_staff_credits/`（约 21,800 行 / 60 个 Lua 文件）
 > 审查目的：① 学习其 OSD 面板与按钮组件实现；② 检查脚本问题；③ 判断与本地 `osd-button` 组件的合并取舍
 > 审查日期：2026-10-05

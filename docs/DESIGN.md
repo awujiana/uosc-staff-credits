@@ -6,7 +6,7 @@
 > 文中描述的 `fankuhub` 聚合源已于 v2.0 移除（同时删除 `data_source` /
 > `fankuhub_api_base` 配置项、`staff-credits-fankuhub-search` 路由、
 > `apis/fankuhub.lua` / `features/fankuhub_search.lua`）。
-> 移除详情见 `REVIEW_AND_MERGE.md` §12；现行配置见 `CONFIGURATION.md`。
+> 移除详情见 `internal/REVIEW_AND_MERGE.md` §12；现行配置见 `CONFIGURATION.md`。
 
 ---
 
