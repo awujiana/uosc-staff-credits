@@ -108,6 +108,11 @@ script-message staff-credits-production-score     # 制作评分
 script-message staff-credits-search bangumi       # 条目搜索
 ```
 
+其它脚本可订阅 `user-data/uosc_staff_credits/state`（JSON，用 `native` 读取）
+或用 `script-message-to uosc_staff_credits api <reply_to> <id> get-state`
+查询当前状态；白名单动作可用 `call` 转发。完整契约见
+[对外 API](docs/EXTERNAL_API.md)。
+
 ## ⚠️ 注意事项
 
 - 必须安装 [uosc](https://github.com/tomasklaen/uosc)，本脚本的菜单与面板依赖它渲染。
@@ -126,6 +131,7 @@ script-message staff-credits-search bangumi       # 条目搜索
 - [界面设计](docs/UI.md)
 - [架构设计](docs/DESIGN.md)
 - [uosc_danmaku 集成参考](docs/UOSC_DANMAKU_API.md)
+- [对外 API（状态订阅 / 请求-响应 / 动作转发）](docs/EXTERNAL_API.md)
 - [项目总览](docs/PROJECT.md)
 
 > 测试见 `tests/` 目录（测试文档与用例默认不展开，需要时再补充）。

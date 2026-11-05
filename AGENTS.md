@@ -20,9 +20,9 @@
 | `modules/` | 通用模块（菜单、ASS 渲染、标题规范化、缓存、分页等） | ✅ |
 | `apis/` | 数据源适配（Bangumi / 镜像 / dandanplay / TMDB / 360kan） | ✅ |
 | `dicts/` | 字典数据（`shinjitai_chars.lua` 日文新字体 → 简体补充表） | ✅ |
-| `docs/` | 操作文档（配置 / 渲染 / 界面 / 架构） | ✅ |
+| `docs/` | 操作文档（配置 / 渲染 / 界面 / 架构 / 对外 API） | ✅ |
 | `docs/internal/` | 内部维护记录（审查归档、隐私清理），不进 README 索引 | ✅（仅存档） |
-| `tests/` | 回归测试（`title_parse_flow` / `ass_render_flow`） | ✅（不进文档索引） |
+| `tests/` | 回归测试（`title_parse_flow` / `ass_render_flow` / `danmaku_info_flow` / `external_api`） | ✅（不进文档索引） |
 | `CHANGELOG.md` | 更新日志（按版本累积记录） | ✅ |
 | `README.md` / `CONTRIBUTING.md` / `AGENTS.md` / `LICENSE` | 仓库四件套 | ✅ |
 
@@ -41,7 +41,7 @@
 
 ## 改动前检查
 
-- **改 Lua 代码**：`luajit -e "assert(loadfile('文件.lua'))"` 过语法；涉及解析 / 展示名的改动跑 `tests/title_parse_flow`（luajit + mp 桩可跑，参考仓库外 harness），渲染改动跑 `tests/ass_render_flow`。
+- **改 Lua 代码**：`luajit -e "assert(loadfile('文件.lua'))"` 过语法；涉及解析 / 展示名的改动跑 `tests/title_parse_flow`（luajit + mp 桩可跑，参考仓库外 harness），渲染改动跑 `tests/ass_render_flow`；改 `modules/external_api.lua` 或 `app/dispatcher.lua` 跑 `tests/external_api/main.lua`（自包含 mp 桩，26 条，无需仓库外 harness）。
 - **改标题解析**：先读 `docs/DESIGN.md` §7（标题解析）与 `modules/guess.lua` 顶部注释，理解既有模式的互斥 → 叠加演进史。
 - **改字典**：只改 `dicts/shinjitai_chars.lua`，新条目不得覆盖 t2s 已有键。
 - **改文档**：`docs/PROJECT.md` 是历史快照（v1.9.2），正文与代码不一致时以代码为准并更新 `docs/DESIGN.md` 与 `CHANGELOG.md`。

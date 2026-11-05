@@ -5,6 +5,20 @@
 
 ## [未发布]
 
+### 新增
+
+- v2.1 **对外 API**：`modules/external_api.lua` 暴露只读状态快照
+  （`user-data/uosc_staff_credits/version` + `/state`）与请求-响应入口
+  `script-message-to uosc_staff_credits api <reply_to> <id> <action>`，
+  支持 `get-state` / `get` / `list-actions` / `call` 四类 action；
+  `call` 仅转发 16 个白名单动作，不含 `api` 自身。
+  快照逐字段白名单，不输出 `bangumi_token`、原始 `opts` 或原始 API 响应。
+- `app/dispatcher.lua`：菜单动作执行后与 `path` 变化时自动刷新广播，
+  既有 script-message 入口参数与副作用保持不变。
+- `docs/EXTERNAL_API.md`：契约、字段表、错误码、调用示例、版本承诺。
+- `tests/external_api/main.lua`：自包含 mp 桩回归 26 条；真机断言由主配置仓库
+  `tools/sub-style-probe-api.lua` 的 `staff-api-*` 7 条覆盖。
+
 ### 维护
 
 - 作者邮箱清理：`README` 联系方式与全部提交元数据改用新邮箱，历史经重写后**删库重建**，

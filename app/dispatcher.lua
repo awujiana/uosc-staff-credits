@@ -51,6 +51,7 @@ M.init = init
 
 -- 引用基础设施
 local path_mod = require("modules.utils.path")
+local external_api = require("modules.external_api")   -- v2.1: 对外 API
 
 -- ============ 内部辅助 ============
 
@@ -630,37 +631,60 @@ end
 function M.register_all()
     local script_name = deps.script_name or ""
 
+    -- v2.1 对外 API 上下文：只持只读引用，不把 token / 原始 opts 透给外部。
+    local api_ctx = {
+        state = deps.state,
+        script_name = script_name,
+        danmaku_link = deps.danmaku_link,
+        opts = opts,
+    }
+
     -- 1. uosc 工具栏按钮（由 menu 模块在 init 时注册）
 
     -- 2. 脚本消息注册（ADR-09：仅路由，业务下沉 features）
-    mp.register_script_message("main-menu", handle_main_menu)
-    mp.register_script_message("staff-credits", handle_staff_credits)
-    mp.register_script_message("character-intro", handle_character_intro)
-    mp.register_script_message("cover-intro", handle_cover_intro)
-    mp.register_script_message("staff-credits-production-score", handle_production_score)
-    mp.register_script_message("staff-credits-search", handle_search)
-    mp.register_script_message("staff-credits-select", handle_select)
-    mp.register_script_message("staff-credits-loading-close", handle_loading_close)
-    mp.register_script_message("staff-credits-menu-closed", handle_menu_closed)
-    mp.register_script_message("staff-credits-close", handle_close)
-    mp.register_script_message("staff-credits-open-browser", handle_open_browser)
-    mp.register_script_message("staff-credits-clear-cache", handle_clear_cache)
-    mp.register_script_message("staff-credits-clear-all", handle_clear_all)
-    mp.register_script_message("staff-credits-settings", handle_settings)
-    mp.register_script_message("staff-credits-servers", handle_servers)
-    mp.register_script_message("staff-credits-servers-move", handle_servers_move)
-    mp.register_script_message("staff-credits-servers-toggle", handle_servers_toggle)
+    --    reg() 在每个动作执行后刷新对外状态广播，订阅者无需轮询。
+    --    包装不改变原 handler 的参数与返回值，也不吞异常。
+    local function reg(name, fn)
+        mp.register_script_message(name, function(...)
+            local results = {fn(...)}
+            pcall(external_api.publish, api_ctx)
+            return unpack(results)
+        end)
+    end
+    reg("main-menu", handle_main_menu)
+    reg("staff-credits", handle_staff_credits)
+    reg("character-intro", handle_character_intro)
+    reg("cover-intro", handle_cover_intro)
+    reg("staff-credits-production-score", handle_production_score)
+    reg("staff-credits-search", handle_search)
+    reg("staff-credits-select", handle_select)
+    reg("staff-credits-loading-close", handle_loading_close)
+    reg("staff-credits-menu-closed", handle_menu_closed)
+    reg("staff-credits-close", handle_close)
+    reg("staff-credits-open-browser", handle_open_browser)
+    reg("staff-credits-clear-cache", handle_clear_cache)
+    reg("staff-credits-clear-all", handle_clear_all)
+    reg("staff-credits-settings", handle_settings)
+    reg("staff-credits-servers", handle_servers)
+    reg("staff-credits-servers-move", handle_servers_move)
+    reg("staff-credits-servers-toggle", handle_servers_toggle)
     -- v1.7: 运行时配置（持久化到 ~~/staff-credits-runtime-config.json）
-    mp.register_script_message("staff-credits-set-config", handle_set_config)
-    mp.register_script_message("staff-credits-config", handle_config)
+    reg("staff-credits-set-config", handle_set_config)
+    reg("staff-credits-config", handle_config)
     -- v2.0: 观看进度同步（需 bangumi_token）
-    mp.register_script_message("staff-credits-mark-watched", handle_mark_watched)
-    mp.register_script_message("staff-credits-show-progress", handle_show_progress)
+    reg("staff-credits-mark-watched", handle_mark_watched)
+    reg("staff-credits-show-progress", handle_show_progress)
+    -- v2.1: 对外 API（只读快照 / 请求-响应 / 白名单动作转发）
+    external_api.register(api_ctx)
 
     -- 3. path observer：路径切换处理
     mp.observe_property("path", "native", path_observer)
+    -- 换片后刷新广播：path_observer 已先更新 state.search_state.current_path。
+    mp.observe_property("path", "native", function()
+        pcall(external_api.publish, api_ctx)
+    end)
 
-    msg.info("[dispatcher] registered all script messages and path observer (script_name=" .. script_name .. ")")
+    msg.info("[dispatcher] registered all script messages, external API and path observer (script_name=" .. script_name .. ")")
 end
 
 -- 暴露 path_observer 供测试用
