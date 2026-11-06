@@ -153,6 +153,18 @@ script-message staff-credits-search bangumi       # 条目搜索
 - [dandanplay](https://www.dandanplay.com/) — 文件名匹配与中文标题转换
 - [TMDB](https://www.themoviedb.org/) — 中文标题候选
 
+## 🏷 关联标签
+
+<p align="center">
+  <a href="https://github.com/topics/mpv"><img alt="mpv" src="https://img.shields.io/badge/mpv-1f6feb?style=flat-square"></a>
+  <a href="https://github.com/topics/uosc"><img alt="uosc" src="https://img.shields.io/badge/uosc-1f6feb?style=flat-square"></a>
+  <a href="https://github.com/topics/lua"><img alt="lua" src="https://img.shields.io/badge/lua-1f6feb?style=flat-square"></a>
+  <a href="https://github.com/topics/mpv-script"><img alt="mpv-script" src="https://img.shields.io/badge/mpv--script-1f6feb?style=flat-square"></a>
+  <a href="https://github.com/topics/staff-credits"><img alt="staff-credits" src="https://img.shields.io/badge/staff--credits-1f6feb?style=flat-square"></a>
+</p>
+
+> 以上为本仓库的 GitHub Topics（关联标签）；可在仓库首页 Topics 区或 `gh repo edit awujiana/uosc-staff-credits --add-topic "..."` 维护。
+
 ## 🔗 关联仓库
 
 - [awujiana/uosc-staff-credits](https://github.com/awujiana/uosc-staff-credits) — 本仓库
